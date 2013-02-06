@@ -47,7 +47,8 @@ def MainMenu():
   
   oc.add(DirectoryObject(key = Callback(LiveStreamMenu), title = 'Live Streams'))
   oc.add(DirectoryObject(key = Callback(HighlightsMenu), title = 'Highlights'))
-  oc.add(DirectoryObject(key = Callback(SettingsMenu), title = 'Settings'))
+  
+  oc.add(PrefsObject(title = L('Preferences')))
   
   return oc
 
