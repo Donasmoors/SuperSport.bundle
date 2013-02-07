@@ -15,3 +15,7 @@ Instructions:
 2. Make sure you have set "Disable capability checking" in the PlexMediaServer setting under the Channels submenu.
 3. To ensure proper operation restart PlexMediaServer after initially installing this plugin.
 
+Thanks:
+=======
+
+This plugin is a port from the original SuperSport plugin for XBMC written and maintained by Bounce and Tinuva.
