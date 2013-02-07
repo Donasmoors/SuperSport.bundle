@@ -114,7 +114,8 @@ def HighlightsSubMenu(title, video_group):
 	Log("duration = %s" % highlights_duration)
 	oc.add(VideoClipObject(
 	  url = "https://www.youtube.com/watch?v=-0SKDXwHKkA", 
-	  title = highlights_title, 
+	  title = highlights_title,
+	  summary = highlights_summary, 
 	  thumb = Resource.ContentsOfURLWithFallback(url=highlights_thumb, fallback=ICON), 
 	  duration = highlights_duration))
 
