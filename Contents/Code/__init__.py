@@ -1,4 +1,5 @@
 ####################################################################################################
+import re
 
 VIDEO_PREFIX = "/video/supersport"
 
@@ -6,6 +7,10 @@ NAME = "SuperSport Plugin"
 
 LIVE_STREAMS_URL = "http://www.supersport.com/live-video"
 HIGHLIGHTS_URL = "http://www.supersport.com/%s"
+LIVE_DATA_WS_URL = "http://www.supersport.com/video/dataLive.aspx"
+LIVE_DATA_JSON_URL = "http://www.supersport.com/video/playerlivejson.aspx"
+VIDEO_DATA_WS_URL = "http://www.supersport.com/video/data.aspx"
+VIDEO_DATA_JSON_URL = "http://www.supersport.com/video/playerjson.aspx"
 
 HIGHLIGHTS_SECTIONS = 	[('All Video', 'video'),
 						('Football', 'football/video'),
@@ -62,10 +67,12 @@ def LiveStreamMenu():
   
   for current_streams in live_stream_data.xpath(".//div[@class='vg_block']"):
 	current_stream_titles = live_stream_data.xpath(".//a[@class='warningMessage']")
-  	for item in current_stream_titles:
-		oc.add(DirectoryObject(key = Callback(DummyMenu, item), title = item.text))
-		Log("code block = %s" % item.text)
-        
+  	try:
+		if current_stream_titles[0] is not None:
+			for item in current_stream_titles:
+				oc.add(DirectoryObject(key = Callback(DummyMenu, item), title = item.text))
+				Log("code block = %s" % item.text)
+	except: oc.add(DirectoryObject(key = Callback(MainMenu), title = "No streams currently available."))
   return oc
 
 ####################################################################################################
@@ -88,13 +95,29 @@ def HighlightsSubMenu(title, video_group):
   oc = ObjectContainer(title2 = title, view_group="InfoList")
   
   highlights_list = HTML.ElementFromURL(HIGHLIGHTS_URL % video_group)
-  
-  for highlights in highlights_list.xpath(".//div[@class='vg_block']"):
-	  highlights_title = highlights.xpath(".//a[contains(@id, 'ContentPlaceHolder1_rpt1_vid_link')]")
-	  for item in highlights_title:
-		oc.add(DirectoryObject(key = Callback(DummyMenu, item), title = item.text))
-		Log("highlights = %s" % item.text)
-  
+
+  for highlights in highlights_list.xpath(".//span[@class='video_title']"):
+	highlights_url = highlights.xpath(".//a")[0].get('href')
+	highlights_id = (re.findall(r'[0-9]+', highlights_url))[0]
+	Log("highlights_url = %s" % highlights_url)
+	Log("highlights_id = %s" % highlights_id)
+	highlights_json_query = VIDEO_DATA_JSON_URL + "?vid=" + highlights_id
+	Log("JSON query url = %s" % highlights_json_query)
+	highlights_json = JSON.ObjectFromURL(highlights_json_query)
+	highlights_thumb = highlights_json['result']['menu']['details']['imageURL']
+	Log("image_URL = %s" % highlights_thumb)
+	highlights_title = highlights_json['result']['menu']['details']['title']
+	Log("title = %s" % highlights_title)
+	highlights_summary = highlights_json['result']['menu']['details']['description']
+	Log("summary = %s" % highlights_summary)
+	highlights_duration = highlights_json['result']['menu']['details']['duration']
+	Log("duration = %s" % highlights_duration)
+	oc.add(VideoClipObject(
+	  url = "https://www.youtube.com/watch?v=-0SKDXwHKkA", 
+	  title = highlights_title, 
+	  thumb = Resource.ContentsOfURLWithFallback(url=highlights_thumb, fallback=ICON), 
+	  duration = highlights_duration))
+
   oc.add(DirectoryObject(key = Callback(DummyMenu), title = "More..."))
   
   return oc
