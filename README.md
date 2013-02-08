@@ -6,7 +6,20 @@ SuperSport video plugin for Plex
 Information:
 ============
 
-Note: This plugin is currently only consists of a menu shell and does not yet do anything. Development is still in progress.
+This plug in will allow you to watch live sports streams and highlighs packages from the SuperSport website.
+
+In order to watch live streams you must enter your login details that are linked to your smartcard.
+
+Enjoy!
+
+Known Issues:
+=============
+
+- Live streams will not work if they are transcoded by the server. This means that live streams will not work on basically all mobile devices.
+- None of the streams play on the Plex\Web application. This is not due to the plugin but rather the incomplete nature of the development on that project.
+
+There are probably a few more issues that haven't been found yet due to fact that I can't test this on all Plex compatible devices. If you find errors, please create an issue so I can take a look if it can be resolved.
+
 
 Instructions:
 =============
