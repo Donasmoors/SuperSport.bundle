@@ -1,5 +1,7 @@
 ####################################################################################################
 import re
+import pyaes
+import auth
 
 VIDEO_PREFIX = "/video/supersport"
 
@@ -11,6 +13,15 @@ LIVE_DATA_WS_URL = "http://www.supersport.com/video/dataLive.aspx"
 LIVE_DATA_JSON_URL = "http://www.supersport.com/video/playerlivejson.aspx"
 VIDEO_DATA_WS_URL = "http://www.supersport.com/video/data.aspx"
 VIDEO_DATA_JSON_URL = "http://www.supersport.com/video/playerjson.aspx"
+SWF_PLAYER_URL_OLD = "http://core.dstv.com/video/flash/DSTV_VideoPlayer.swf?v=1-15"
+SWF_PLAYER_URL = "http://core.dstv.com/video/flash/PlayerDStv.swf?v=2"
+
+DECRYPTION_KEY1 = "1233901199002223000111A2"
+DECRYPTION_KEY2 = "9685647821298987483258Z8"
+DECRYPTION_KEY_LIVE1 = "9685647821298987483258Z8"
+DECRYPTION_KEY_LIVE2 = "1233901199002223000111A2"
+DECRYPTION_KEY_VIDEO1 = "1233901199002223000111A2"
+DECRYPTION_KEY_VIDEO2 = "9685647821298987483258Z8"
 
 HIGHLIGHTS_SECTIONS = 	[('All Video', 'video'),
 						('Football', 'football/video'),
@@ -52,7 +63,7 @@ def MainMenu():
   
   oc.add(DirectoryObject(key = Callback(LiveStreamMenu), title = 'Live Streams'))
   oc.add(DirectoryObject(key = Callback(HighlightsMenu), title = 'Highlights'))
-  
+ 
   oc.add(PrefsObject(title = L('Preferences')))
   
   return oc
@@ -61,18 +72,34 @@ def MainMenu():
 
 def LiveStreamMenu():
 
-  oc = ObjectContainer(title2 = "Live Streams", view_group= "InfoList")
-  
-  live_stream_data = HTML.ElementFromURL(LIVE_STREAMS_URL)
-  
-  for current_streams in live_stream_data.xpath(".//div[@class='vg_block']"):
-	current_stream_titles = live_stream_data.xpath(".//a[@class='warningMessage']")
-  	try:
-		if current_stream_titles[0] is not None:
-			for item in current_stream_titles:
-				oc.add(DirectoryObject(key = Callback(DummyMenu, item), title = item.text))
-				Log("code block = %s" % item.text)
-	except: oc.add(DirectoryObject(key = Callback(MainMenu), title = "No streams currently available."))
+  Log("auth level = %s" % auth.check_auth())
+	
+  if auth.check_auth() != False:
+	  oc = ObjectContainer(title2 = "Live Streams", view_group= "InfoList")
+	  
+	  live_stream_data = HTML.ElementFromURL(LIVE_STREAMS_URL)
+
+	  for live_streams in live_stream_data.xpath(".//a[@class='warningMessage']"):
+		live_streams_str = HTML.StringFromElement(live_streams)
+		live_streams_id = (re.findall('ids=([0-9]{1,6})', live_streams_str))[0]
+		live_streams_json_query = LIVE_DATA_JSON_URL + "?vid=" + live_streams_id
+		live_streams_json = JSON.ObjectFromURL(live_streams_json_query)
+		live_streams_rtmp_params = getStreamRTMPParamsFromString(getMediaDecryptedPathString(
+		  live_streams_json['result']['services']['videoURL'], "LIVE"))
+
+		oc.add(VideoClipObject(
+		  key = RTMPVideoURL(
+			url = live_streams_rtmp_params['rtmpServer'], 
+			clip = live_streams_rtmp_params['playpath'], 
+			swf_url = SWF_PLAYER_URL, 
+			live = True),
+		  rating_key = live_streams_id,
+		  thumb = Resource.ContentsOfURLWithFallback(url=live_streams_json['result']['menu']['details']['imageURL'], fallback=ICON), 
+		  title = live_streams_json['result']['menu']['details']['title'],
+		  summary = live_streams_json['result']['menu']['details']['description']))
+  else:
+	  oc = MessageContainer("Login details required", "Please check that you have entered your correct email and password in Preferences.")
+    
   return oc
 
 ####################################################################################################
@@ -83,59 +110,90 @@ def HighlightsMenu():
 
   for (title, video_group) in HIGHLIGHTS_SECTIONS:
 	  oc.add(DirectoryObject(
-        key = Callback(HighlightsSubMenu, title = title, video_group = video_group), 
+        key = Callback(HighlightsSubMenu, title = title, video_group = video_group, page_number = 1), 
         title = title))
 
   return oc
   
 ####################################################################################################
-	
-def HighlightsSubMenu(title, video_group):
+
+def HighlightsSubMenu(title, video_group, page_number):
 
   oc = ObjectContainer(title2 = title, view_group="InfoList")
-  
-  highlights_list = HTML.ElementFromURL(HIGHLIGHTS_URL % video_group)
+
+  highlights_list = HTML.ElementFromURL(HIGHLIGHTS_URL % video_group + "?sort=desc&page=" + str(page_number))
+
+  highlights_page_text = (highlights_list.xpath(".//div[@class='pages']"))[0].text
+
+  page_number += 1
 
   for highlights in highlights_list.xpath(".//span[@class='video_title']"):
 	highlights_url = highlights.xpath(".//a")[0].get('href')
 	highlights_id = (re.findall(r'[0-9]+', highlights_url))[0]
-	Log("highlights_url = %s" % highlights_url)
-	Log("highlights_id = %s" % highlights_id)
 	highlights_json_query = VIDEO_DATA_JSON_URL + "?vid=" + highlights_id
-	Log("JSON query url = %s" % highlights_json_query)
 	highlights_json = JSON.ObjectFromURL(highlights_json_query)
-	highlights_thumb = highlights_json['result']['menu']['details']['imageURL']
-	Log("image_URL = %s" % highlights_thumb)
-	highlights_title = highlights_json['result']['menu']['details']['title']
-	Log("title = %s" % highlights_title)
-	highlights_summary = highlights_json['result']['menu']['details']['description']
-	Log("summary = %s" % highlights_summary)
-	highlights_duration = highlights_json['result']['menu']['details']['duration']
-	Log("duration = %s" % highlights_duration)
+	highlights_rtmp_params = getVideoRTMPParamsFromString(
+	  getMediaDecryptedPathString(highlights_json['result']['services']['videoURL'], "VIDEO"))
+
 	oc.add(VideoClipObject(
-	  url = "https://www.youtube.com/watch?v=-0SKDXwHKkA", 
-	  title = highlights_title,
-	  summary = highlights_summary, 
-	  thumb = Resource.ContentsOfURLWithFallback(url=highlights_thumb, fallback=ICON), 
-	  duration = highlights_duration))
+	  key = RTMPVideoURL(
+	    url = highlights_rtmp_params['rtmpServer'], 
+	    clip = (highlights_rtmp_params['playpath']), 
+	    swf_url = SWF_PLAYER_URL),
+	  rating_key = highlights_id,
+	  thumb = Resource.ContentsOfURLWithFallback(url=highlights_json['result']['menu']['details']['imageURL'], fallback=ICON), 
+	  title = highlights_json['result']['menu']['details']['title'],
+	  summary = highlights_json['result']['menu']['details']['description'],
+	  duration = highlights_json['result']['menu']['details']['duration']))
 
-  oc.add(DirectoryObject(key = Callback(DummyMenu), title = "More..."))
-  
+  oc.add(DirectoryObject(
+    key = Callback(
+      HighlightsSubMenu, 
+      title = title, 
+      video_group = video_group, 
+      page_number = page_number), 
+    title = "Next Page..."))
+
   return oc
 
 ####################################################################################################
-	
-def DummyMenu():
 
-  oc = ObjectContainer(title2 = "Dummy Menu", view_group= "InfoList")
-
-  return oc
+def getMediaDecryptedPathString(strToDecrypt,type):
+	ds1 = ""
+	if type == "LIVE": 
+		decryptor = pyaes.new(DECRYPTION_KEY_LIVE1, pyaes.MODE_ECB, IV='')
+		ds1 = decryptor.decrypt(strToDecrypt.decode("hex")).replace('\x00', '')
+		if ds1[:4] == "rtmp": return ds1
+		else:
+			decryptor = pyaes.new(DECRYPTION_KEY_LIVE2, pyaes.MODE_ECB, IV='')
+			ds1 = decryptor.decrypt(strToDecrypt.decode("hex")).replace('\x00', '')
+			if ds1[:4] == "rtmp": return ds1
+	if type == "VIDEO": 
+		decryptor = pyaes.new(DECRYPTION_KEY1, pyaes.MODE_ECB, IV='')
+		ds1 = decryptor.decrypt(strToDecrypt.decode("hex")).replace('\x00', '')
+		if ds1[:4] == "rtmp": return ds1
+		else:
+			decryptor = pyaes.new(DECRYPTION_KEY2, pyaes.MODE_ECB, IV='')
+			ds1 = decryptor.decrypt(strToDecrypt.decode("hex")).replace('\x00', '')
+			if ds1[:4] == "rtmp": return ds1
+	return ds1
 	
 ####################################################################################################
+
+def getVideoRTMPParamsFromString(strVideoPath):
+	paths = strVideoPath.split("/")
+	rtmpServer = "%s//%s/%s/%s" % (paths[0], paths[2], paths[3], paths[4])
+	app = paths[3] + "/" + paths[4]
+	playpath = paths[-3] + "/" + paths[-2] + "/" + paths[-1].replace('\x00', '').replace(".mp4","")
+	return {'rtmpServer':rtmpServer, 'app':app, 'playpath':("mp4:" + playpath)}
+
+####################################################################################################
+
+def getStreamRTMPParamsFromString(strStreamPath):
+	paths = strStreamPath.split("/")
+	rtmpServer = "%s//%s/%s" % (paths[0], paths[2], paths[3])
+	app = paths[3]
+	playpath = paths[-1].replace('\x00', '')
+	return {'rtmpServer':rtmpServer, 'app':app, 'playpath':playpath}
 	
-def SettingsMenu():
-
-  oc = ObjectContainer(title2 = "Settings", view_group= "InfoList")
-
-  return oc
-
+####################################################################################################
