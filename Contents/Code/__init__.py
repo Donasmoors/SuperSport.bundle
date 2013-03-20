@@ -129,7 +129,7 @@ def HighlightsSubMenu(title, video_group, page_number):
 
   for highlights in highlights_list.xpath(".//span[@class='video_title']"):
 	highlights_url = highlights.xpath(".//a")[0].get('href')
-	highlights_id = (re.findall(r'[0-9]+', highlights_url))[0]
+	highlights_id = highlights_url[-6:]
 	highlights_json_query = VIDEO_DATA_JSON_URL + "?vid=" + highlights_id
 	highlights_json = JSON.ObjectFromURL(highlights_json_query)
 	highlights_rtmp_params = getVideoRTMPParamsFromString(
