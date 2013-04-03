@@ -84,24 +84,29 @@ def LiveStreamMenu():
 		live_streams_id = (re.findall('ids=([0-9]{1,6})', live_streams_str))[0]
 		live_streams_json_query = LIVE_DATA_JSON_URL + "?vid=" + live_streams_id
 		live_streams_json = JSON.ObjectFromURL(live_streams_json_query)
-		live_streams_rtmp_params = getStreamRTMPParamsFromString(getMediaDecryptedPathString(
-		  live_streams_json['result']['services']['videoURL'], "LIVE"))
+		try:
+			live_streams_decrypted = getMediaDecryptedPathString(
+			  live_streams_json['result']['services']['videoURL'], "LIVE")
+		except:
+			live_streams_decrypted = ""
+			
+		if live_streams_decrypted[:4] == "rtmp":
+			live_streams_rtmp_params = getStreamRTMPParamsFromString(live_streams_decrypted)
 
-		oc.add(VideoClipObject(
-		  key = RTMPVideoURL(
-			url = live_streams_rtmp_params['rtmpServer'], 
-			clip = live_streams_rtmp_params['playpath'], 
-			swf_url = SWF_PLAYER_URL, 
-			live = True),
-		  rating_key = live_streams_id,
-		  thumb = Resource.ContentsOfURLWithFallback(url=live_streams_json['result']['menu']['details']['imageURL'], fallback=ICON), 
-		  title = live_streams_json['result']['menu']['details']['title'],
-		  summary = live_streams_json['result']['menu']['details']['description']))
+			oc.add(VideoClipObject(
+			  key = RTMPVideoURL(
+				url = live_streams_rtmp_params['rtmpServer'], 
+				clip = live_streams_rtmp_params['playpath'], 
+				swf_url = SWF_PLAYER_URL, 
+				live = True),
+			  rating_key = live_streams_id,
+			  thumb = Resource.ContentsOfURLWithFallback(url=live_streams_json['result']['menu']['details']['imageURL'], fallback=ICON), 
+			  title = live_streams_json['result']['menu']['details']['title'],
+			  summary = live_streams_json['result']['menu']['details']['description']))
   else:
-	  oc = MessageContainer("Login details required", "Please check that you have entered your correct email and password in Preferences.")
+	  oc = ObjectContainer(header = "Login details required", message = "Please check that you have entered your correct email and password in Preferences.")
     
   return oc
-
 ####################################################################################################
 
 def HighlightsMenu():
